@@ -18,12 +18,17 @@ from core.graph_model import (
     GraphNode,
     NODE_TYPES,
 )
-from core.simulation_runner import ScenarioResult, solve_both_scenarios
+from core.simulation_runner import (
+    ScenarioResult,
+    compare_algorithms,
+    solve_both_scenarios,
+)
 from core.visualizer import build_map
 
 
 def _clear_results() -> None:
     st.session_state.results = None
+    st.session_state.comparison = None
 
 
 def _initialize_state() -> None:
@@ -32,6 +37,7 @@ def _initialize_state() -> None:
         st.session_state.graph = scenario.graph
         st.session_state.parameters = scenario.parameters
         st.session_state.results = None
+        st.session_state.comparison = None
         st.session_state.map_click = None
         st.session_state.map_location_version = 0
         st.session_state.algorithm = "dinic"
@@ -133,7 +139,11 @@ def _export_csv(
     return output.getvalue()
 
 
-def _render_results(results: dict[str, ScenarioResult], selected: str) -> None:
+def _render_results(
+    results: dict[str, ScenarioResult],
+    selected: str,
+    comparison: dict[str, dict[str, ScenarioResult]] | None = None,
+) -> None:
     st.subheader("Hasil max-flow")
     columns = st.columns(2)
     for column, scenario in zip(columns, ("normal", "konvoi")):
@@ -149,33 +159,61 @@ def _render_results(results: dict[str, ScenarioResult], selected: str) -> None:
                 f"Kapasitas parkir: {result.parking_capacity:,.0f}"
             )
 
-    result = results[selected]
-    st.markdown(
-        f"**Min-cut ({selected}) — kapasitas "
-        f"{result.flow_result.max_flow:,.0f} kendaraan/jam**"
-    )
-    cut_rows = []
-    for index in result.flow_result.min_cut:
-        arc = result.arcs[index]
-        if arc.kind == "park":
-            label = f"{arc.node} → tujuan (parkir: {st.session_state.graph.nodes[arc.node].nama})"
-        elif arc.kind == "demand":
-            label = "Demand kendaraan"
-        elif arc.kind == "source":
-            label = f"Sumber → {arc.end}"
-        else:
-            label = f"{arc.start} → {arc.end}"
-        cut_rows.append(
+    if not comparison:
+        return
+
+    st.markdown(f"**Perbandingan algoritma max-flow (skenario: {selected})**")
+    comp_rows = []
+    for label, algo_key in (
+        ("Ford-Fulkerson (Basic)", "Ford-Fulkerson"),
+        ("Dinic's Algorithm (Advance)", "Dinic"),
+    ):
+        res_norm = comparison[algo_key]["normal"]
+        res_konv = comparison[algo_key]["konvoi"]
+        res_sel = comparison[algo_key][selected]
+        stats = res_sel.stats
+        comp_rows.append(
             {
-                "Ruas": label,
-                "Kapasitas (kend/jam)": arc.capacity,
-                "Jenis": arc.kind,
+                "Algoritma": label,
+                "Max-Flow Normal (kend/jam)": f"{res_norm.flow_result.max_flow:,.0f}",
+                "Max-Flow Konvoi (kend/jam)": f"{res_konv.flow_result.max_flow:,.0f}",
+                "Belum Tertampung (kend/jam)": f"{res_sel.unserved:,.0f}",
+                "Fase BFS": stats.get("phases", "-"),
+                "Augmenting Path": stats.get(
+                    "augmentations", res_sel.flow_result.augmentations
+                ),
+                "Edge Scan": stats.get("edge_scans", "-"),
+                "Waktu Eksekusi (ms)": f"{res_sel.elapsed_ms:.4f}",
             }
         )
-    if cut_rows:
-        st.dataframe(cut_rows, width="stretch", hide_index=True)
-    else:
-        st.info("Tidak ada edge berkapasitas positif pada min-cut.")
+    st.dataframe(comp_rows, width="stretch", hide_index=True)
+
+    ff_sel = comparison["Ford-Fulkerson"][selected]
+    dn_sel = comparison["Dinic"][selected]
+    edge_rows = []
+    for index, edge in enumerate(st.session_state.graph.edges):
+        if not edge.flow:
+            continue
+        ff_flow = ff_sel.edge_results.get(index, {}).get("flow", 0.0)
+        dn_flow = dn_sel.edge_results.get(index, {}).get("flow", 0.0)
+        cap = dn_sel.edge_results.get(index, {}).get("capacity", 0.0)
+        if ff_flow <= 0 and dn_flow <= 0:
+            continue
+        edge_rows.append(
+            {
+                "Ruas Jalan": f"{edge.u} → {edge.v}",
+                "Kapasitas (kend/jam)": f"{cap:,.0f}",
+                "Aliran Ford-Fulkerson": f"{ff_flow:,.0f}",
+                "Aliran Dinic's": f"{dn_flow:,.0f}",
+                "Utilisasi (%)": f"{(dn_flow / cap * 100) if cap > 0 else 0:.1f}%",
+            }
+        )
+    if edge_rows:
+        with st.expander(
+            f"Detail perbandingan aliran per ruas jalan ({selected})",
+            expanded=False,
+        ):
+            st.dataframe(edge_rows, width="stretch", hide_index=True)
 
 
 def _render_node_editor(graph: GraphModel) -> None:
@@ -376,8 +414,9 @@ def _render_edge_editors(graph: GraphModel) -> None:
                 value=edge.flow,
                 key=f"edge_flow_{selected}",
             )
-            save_edge = st.form_submit_button("Simpan edge")
-            delete_edge = st.form_submit_button("Hapus edge")
+            save_col, del_col = st.columns(2)
+            save_edge = save_col.form_submit_button("Simpan edge")
+            delete_edge = del_col.form_submit_button("Hapus edge")
         if save_edge:
             try:
                 updated = GraphEdge.from_dict(
@@ -407,7 +446,9 @@ def _render_edge_editors(graph: GraphModel) -> None:
             _clear_results()
             st.rerun()
 
-    st.markdown("**Tambah edge**")
+
+def _render_add_edge(graph: GraphModel) -> None:
+    st.subheader("Tambah edge")
     node_keys = sorted(graph.nodes)
     if len(node_keys) < 2:
         st.info("Tambahkan setidaknya dua node untuk membuat edge.")
@@ -418,13 +459,14 @@ def _render_edge_editors(graph: GraphModel) -> None:
         end = col2.selectbox(
             "Ke node", node_keys, index=min(1, len(node_keys) - 1), key="new_edge_end"
         )
-        direction = st.selectbox(
+        col1, col2 = st.columns(2)
+        direction = col1.selectbox(
             "Arah edge baru",
             ("two", "one"),
             format_func=lambda value: "Dua arah" if value == "two" else "Satu arah",
             key="new_edge_direction",
         )
-        edge_type = st.selectbox("Jenis edge baru", EDGE_TYPES, key="new_edge_type")
+        edge_type = col2.selectbox("Jenis edge baru", EDGE_TYPES, key="new_edge_type")
         lanes = st.number_input("Lajur per arah baru", min_value=0.0, value=2.0)
         if st.form_submit_button("Tambah edge"):
             try:
@@ -499,14 +541,15 @@ def main() -> None:
     _initialize_state()
     st.title("Editor graf aliran koridor Asia Afrika")
     st.caption(
-        "Aplikasi Python untuk mengedit jaringan jalan dan menganalisis "
-        "max-flow/min-cut kendaraan."
+        "Aplikasi Python untuk mengedit jaringan jalan dan membandingkan "
+        "algoritma max-flow (Ford-Fulkerson vs Dinic's)."
     )
     if st.button("Reset ke data awal"):
         scenario = load_scenario(DEFAULT_SCENARIO)
         st.session_state.graph = scenario.graph
         st.session_state.parameters = scenario.parameters
         st.session_state.results = None
+        st.session_state.comparison = None
         st.session_state.map_click = None
         st.session_state.map_location_version += 1
         st.rerun()
@@ -514,36 +557,39 @@ def main() -> None:
     graph: GraphModel = st.session_state.graph
     parameters: FlowParameters = st.session_state.parameters
     algorithm = st.selectbox(
-        "Algoritma max-flow",
-        list(AlgorithmRegistry.available()),
+        "Algoritma max-flow (untuk visualisasi peta)",
+        ["dinic", "ford_fulkerson"],
         format_func={
-            "dinic": "Dinic",
-            "ford_fulkerson": "Ford-Fulkerson",
-            "push_relabel": "Push-Relabel",
+            "dinic": "Dinic's Algorithm (Advance)",
+            "ford_fulkerson": "Ford-Fulkerson (Basic)",
         }.get,
         key="algorithm",
         on_change=_clear_results,
-        help="Pilih Dinic, Ford-Fulkerson (BFS), atau Push-Relabel.",
+        help="Pilih algoritma yang ditampilkan pada peta; tombol hitung akan membandingkan keduanya.",
     )
-    if st.button("Hitung max-flow dan min-cut", type="primary"):
+    if st.button("Hitung & bandingkan max-flow", type="primary"):
         try:
             graph.validate()
-            st.session_state.results = solve_both_scenarios(
+            comparison = compare_algorithms(
                 graph,
                 parameters,
+                ("Ford-Fulkerson", "Dinic"),
+            )
+            st.session_state.comparison = comparison
+            st.session_state.results = comparison[
                 {
                     "dinic": "Dinic",
                     "ford_fulkerson": "Ford-Fulkerson",
-                    "push_relabel": "Push-Relabel",
-                }[algorithm],
-            )
+                }[algorithm]
+            ]
         except (ValueError, RuntimeError) as error:
             st.error(f"Perhitungan gagal: {error}")
             st.session_state.results = None
+            st.session_state.comparison = None
 
     results = st.session_state.results
     if results:
-        _render_results(results, parameters.scen)
+        _render_results(results, parameters.scen, st.session_state.get("comparison"))
 
     left, right = st.columns([1.55, 1])
     with left:
@@ -551,7 +597,7 @@ def main() -> None:
         result = results.get(parameters.scen) if results else None
         map_data = st_folium(
             build_map(graph, parameters, result),
-            height=640,
+            height=540,
             use_container_width=True,
             returned_objects=["last_clicked"],
             key="network_map",
@@ -562,16 +608,50 @@ def main() -> None:
             if location != st.session_state.map_click:
                 st.session_state.map_click = location
                 st.session_state.map_location_version += 1
-        st.caption(
-            "Klik peta untuk memilih lokasi node baru. "
-            "Merah menandai ruas min-cut/jenuh; hijau dan oranye menunjukkan utilisasi."
-        )
+        st.caption("Klik peta untuk memilih lokasi node baru.")
+        if result is None:
+            st.markdown(
+                """
+                <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:0.88rem;padding:8px 12px;border-radius:8px;background:rgba(148,163,184,0.12);">
+                    <b>Keterangan Garis (Sebelum Dihitung):</b>
+                    <span><span style="display:inline-block;width:18px;height:4px;background:#555555;vertical-align:middle;margin-right:6px;"></span>Koridor Asia Afrika</span>
+                    <span><span style="display:inline-block;width:18px;height:4px;background:#2563eb;vertical-align:middle;margin-right:6px;"></span>Jaringan jalan penghubung</span>
+                    <span><span style="display:inline-block;width:18px;height:0;border-top:3px dashed #d9481e;vertical-align:middle;margin-right:6px;"></span>Jalur rute konvoi</span>
+                    <span><span style="display:inline-block;width:18px;height:0;border-top:2px dashed #94a3b8;vertical-align:middle;margin-right:6px;"></span>Tidak ikut jaringan aliran</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                """
+                <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:0.88rem;padding:8px 12px;border-radius:8px;background:rgba(148,163,184,0.12);">
+                    <b>Keterangan Warna Garis (Utilisasi Aliran):</b>
+                    <span><span style="display:inline-block;width:18px;height:4px;background:#16a34a;vertical-align:middle;margin-right:6px;"></span><b>Hijau</b>: Lancar (&lt; 50% kapasitas)</span>
+                    <span><span style="display:inline-block;width:18px;height:4px;background:#f59e0b;vertical-align:middle;margin-right:6px;"></span><b>Oranye</b>: Padat (50% – 98% kapasitas)</span>
+                    <span><span style="display:inline-block;width:18px;height:4px;background:#dc2626;vertical-align:middle;margin-right:6px;"></span><b>Merah</b>: Jenuh / Penuh (≥ 99% kapasitas)</span>
+                    <span><span style="display:inline-block;width:18px;height:4px;background:#94a3b8;vertical-align:middle;margin-right:6px;"></span><b>Abu-abu</b>: Tidak dilewati aliran (0 kend/jam)</span>
+                    <span><span style="display:inline-block;width:18px;height:0;border-top:3px dashed #64748b;vertical-align:middle;margin-right:6px;"></span><b>Putus-putus</b>: Jalur konvoi / non-aliran</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
     with right:
         _render_parameter_editor(parameters)
+
+    st.divider()
+    row1_left, row1_right = st.columns(2)
+    with row1_left:
         _render_node_editor(graph)
+    with row1_right:
         _render_add_node(graph)
+
+    row2_left, row2_right = st.columns(2)
+    with row2_left:
         _render_edge_editors(graph)
+    with row2_right:
+        _render_add_edge(graph)
 
     st.subheader("Impor dan ekspor")
     export_columns = st.columns(4)

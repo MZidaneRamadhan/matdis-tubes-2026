@@ -72,7 +72,6 @@ def main() -> None:
         assert abs(ff_res.max_flow - inc_res.max_flow) < 1e-6, (step.t, ff_res.max_flow, inc_res.max_flow)
 
         violated, overflow = ([], 0.0) if prev_flows is None else stale_flow_check(prev_flows, arcs)
-        cut = [f"{arcs[i].start}->{arcs[i].end}" for i in dn_res.min_cut]
 
         rows.append(
             {
@@ -104,7 +103,6 @@ def main() -> None:
                 "dialihkan": f"{inc_stats.get('rerouted', 0):.0f}",
                 "dibatalkan": f"{inc_stats.get('cancelled', 0):.0f}",
                 "arc_dilanggar_aliran_lama": ", ".join(violated) or "-",
-                "min_cut": ", ".join(cut),
             }
         )
         prev_flows = dn_res.arc_flows if prev_flows is None else inc_res.arc_flows

@@ -1,7 +1,7 @@
-t,jam,kejadian,perubahan,arc_berubah,arc_meluap,dialihkan,dibatalkan,arc_dilanggar_aliran_lama,min_cut
-0,07.00,Kondisi normal (baseline),-,0,0,0,0,-,"P1->T, P2->T, P3->T, P4->T, P5->T, P6->T, P7->T"
-1,08.00,"Konvoi dimulai, ruas di simpul macet turun 40%",-,28,0,0,0,-,"P1->T, P2->T, P3->T, P4->T, P5->T, P6->T, P7->T"
-2,09.00,Ruas Asia Afrika J5->J10 ditutup total (area finis JPO),J5->J10 x0,1,1,0,500,J5->J10,"P1->T, P3->T, P4->T, P5->T, P6->T, P7->T"
-3,10.00,"Hujan deras + parkir liar, Jl. Sudirman P6-E3 tinggal 25%",P6->E3 x0.25,2,1,250,0,E3->P6,"P1->T, P3->T, P4->T, P5->T, P6->T, P7->T"
-4,11.00,"Basement Alun-Alun (P1) tergenang, ditutup",parkir P1 x0,1,1,0,500,P1->T,"P3->T, P4->T, P5->T, P6->T, P7->T"
-5,13.00,"Konvoi selesai, J5->J10 dan Jl. Sudirman pulih (P1 masih tergenang)",J5->J10 x1; P6->E3 x1,30,0,0,0,-,"P2->T, P3->T, P4->T, P5->T, P6->T, P7->T"
+t,jam,kejadian,perubahan,arc_berubah,arc_meluap,dialihkan,dibatalkan,arc_dilanggar_aliran_lama
+0,07.00,Kondisi normal (baseline),-,0,0,0,0,-
+1,08.00,"Konvoi dimulai, ruas di simpul macet turun 40%",-,28,0,0,0,-
+2,09.00,Ruas Asia Afrika J5->J10 ditutup total (area finis JPO),J5->J10 x0,1,1,0,500,J5->J10
+3,10.00,"Hujan deras + parkir liar, Jl. Sudirman P6-E3 tinggal 25%",P6->E3 x0.25,2,1,250,0,E3->P6
+4,11.00,"Basement Alun-Alun (P1) tergenang, ditutup",parkir P1 x0,1,1,0,500,P1->T
+5,13.00,"Konvoi selesai, J5->J10 dan Jl. Sudirman pulih (P1 masih tergenang)",J5->J10 x1; P6->E3 x1,30,0,0,0,-

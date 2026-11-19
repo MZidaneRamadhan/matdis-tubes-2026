@@ -83,12 +83,10 @@ def main() -> None:
                     "fase_BFS": m["phases_bfs"],
                     "augmenting_path": m["augmentations"],
                     "edge_scan": m["edge_scans"],
-                    "min_cut": " ".join(f"{arcs[i].start}->{arcs[i].end}" for i in m["min_cut"]),
                 }
             )
     print(f"\n=== 4.1 Benchmark: {scenario.title} (median {args.repeat}x) ===")
-    print(markdown_table({k: v for k, v in r.items() if k != "min_cut"} for r in rows))
-    print("\nMin-cut (bottleneck):", rows[0]["min_cut"])
+    print(markdown_table(rows))
     path = write_csv("benchmark_asia_afrika.csv", rows)
     print(f"Disimpan: {path}")
 
