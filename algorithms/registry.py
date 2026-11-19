@@ -1,4 +1,4 @@
-from typing import Dict, List, Type
+from typing import Any, Dict, List, Type
 
 from core.base_algorithm import BaseGraphAlgorithm
 
@@ -27,7 +27,7 @@ class AlgorithmRegistry:
         )
 
     @classmethod
-    def create(cls, key: str, graph_model) -> BaseGraphAlgorithm:
+    def create(cls, key: str, graph_model: Any = None) -> BaseGraphAlgorithm:
         algorithm_id = cls.resolve(key)
         return cls._algorithms[algorithm_id](graph_model)
 

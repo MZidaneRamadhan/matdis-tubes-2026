@@ -1,5 +1,8 @@
 # --- Core Graph & Network Data Structure ---
 networkx>=3.0
+folium>=0.18.0
+streamlit>=1.50.0
+streamlit-folium>=0.24.0
 
 # --- Scenario Configuration Parser ---
 pyyaml>=6.0

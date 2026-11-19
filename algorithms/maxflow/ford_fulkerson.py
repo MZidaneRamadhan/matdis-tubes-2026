@@ -1,86 +1,50 @@
 from collections import deque
-import networkx as nx
-from core.base_algorithm import BaseGraphAlgorithm
-from core.graph_model import SpatialGraphModel
+from typing import Sequence
+
+from core.base_algorithm import BaseGraphAlgorithm, EPSILON, FlowResult
+from core.flow_model import FlowArc
 
 
 class FordFulkerson(BaseGraphAlgorithm):
-    """Algoritma Dasar Maximum Flow (Edmonds-Karp / BFS Variant)."""
+    """Ford-Fulkerson dengan pencarian augmenting path menggunakan BFS."""
 
-    def __init__(self, model: SpatialGraphModel):
-        super().__init__(model)
-        self.residual = nx.DiGraph()
-
-    def _bfs(self, source, sink, parent) -> bool:
-        visited = {source}
-        queue = deque([source])
-
-        while queue:
-            u = queue.popleft()
-            for v in self.residual.neighbors(u):
-                capacity = self.residual[u][v].get("capacity", 0.0)
-                if v not in visited and capacity > 0:
-                    queue.append(v)
-                    visited.add(v)
-                    parent[v] = u
-                    if v == sink:
-                        return True
-        return False
-
-    def run(self, source_node: int, sink_node: int) -> float:
-        # Inisialisasi Residual Graph
-        self.residual.clear()
-        self.residual.add_nodes_from(self.graph.nodes())
-
-        for u, v, data in self.graph.edges(data=True):
-            cap = float(data.get("capacity", data.get("weight", 1.0)))
-            self.residual.add_edge(u, v, capacity=cap)
-            if not self.residual.has_edge(v, u):
-                self.residual.add_edge(v, u, capacity=0.0)
-
+    def run(
+        self, source: str, sink: str, arcs: Sequence[FlowArc]
+    ) -> FlowResult:
+        graph, forward_edges = self._initialize(arcs, source, sink)
         max_flow = 0.0
-        parent = {}
+        augmentations = 0
 
-        self.log_step(
-            event_type="INITIALIZATION",
-            state_mutations={"source": source_node, "sink": sink_node, "max_flow": 0.0},
+        while True:
+            parent: dict[str, tuple[str, int]] = {}
+            visited = {source}
+            queue = deque([source])
+            while queue and sink not in visited:
+                node = queue.popleft()
+                for index, edge in enumerate(graph[node]):
+                    if edge.capacity > EPSILON and edge.target not in visited:
+                        visited.add(edge.target)
+                        parent[edge.target] = (node, index)
+                        queue.append(edge.target)
+                        if edge.target == sink:
+                            break
+            if sink not in visited:
+                break
+
+            path: list[tuple[str, int]] = []
+            node = sink
+            amount = float("inf")
+            while node != source:
+                previous, index = parent[node]
+                path.append((previous, index))
+                amount = min(amount, graph[previous][index].capacity)
+                node = previous
+
+            for previous, index in path:
+                self._augment(graph, previous, index, amount)
+            max_flow += amount
+            augmentations += 1
+
+        return self._result(
+            graph, forward_edges, arcs, source, max_flow, augmentations
         )
-
-        while self._bfs(source_node, sink_node, parent):
-            path_flow = float("inf")
-            s = sink_node
-
-            # Cari bottleneck capacity sepanjang augmenting path
-            while s != source_node:
-                path_flow = min(path_flow, self.residual[parent[s]][s]["capacity"])
-                s = parent[s]
-
-            # Rekonstruksi jalur
-            s = sink_node
-            path = []
-            while s != source_node:
-                path.append(s)
-                s = parent[s]
-            path.append(source_node)
-            path.reverse()
-
-            # Update kapasitas residual
-            v = sink_node
-            while v != source_node:
-                u = parent[v]
-                self.residual[u][v]["capacity"] -= path_flow
-                self.residual[v][u]["capacity"] += path_flow
-                v = parent[v]
-
-            max_flow += path_flow
-
-            self.log_step(
-                event_type="AUGMENTING_PATH_FOUND",
-                state_mutations={
-                    "path": path,
-                    "flow_added": path_flow,
-                    "current_max_flow": max_flow,
-                },
-            )
-
-        return max_flow

@@ -1,229 +1,104 @@
-# Tutorial: Data-Driven Simulation Runner
+# Tutorial: Editor Graf Aliran Asia Afrika
 
-Tutorial ini menjelaskan bagaimana pipeline simulasi berbasis data (YAML) dijalankan, dari file skenario hingga visualisasi, log kuantitatif, dan ekspor trace JSON. Tutorial ini juga mencakup cara menjalankan **1 kasus, beberapa kasus, hingga seluruh 28 kasus** sekaligus.
+Tutorial ini menjelaskan cara menjalankan aplikasi, mengubah jaringan jalan,
+menghitung max-flow/min-cut, dan menyimpan data graf.
 
----
+## 1. Menyiapkan dan menjalankan aplikasi
 
-## 1. Konsep Data-Driven
+Pastikan Python 3.10 atau lebih baru tersedia. Dari PowerShell pada direktori
+proyek:
 
-Prinsip utama proyek ini: **skenario adalah data, bukan kode**. Seluruh detail kasus (topologi graf, bobot jalan, event dinamis, titik start/goal) didefinisikan dalam file YAML di `cases/scenarios/`. Kode Python hanya berisi mesin eksekusi yang generik — menambah kasus baru **tidak perlu mengubah kode sama sekali**.
-
-```mermaid
-flowchart LR
-    A[YAML Skenario] --> B[ScenarioLoader]
-    B --> C[SpatialGraphModel]
-    B --> D[Execution Plan]
-    C --> E{AlgorithmRegistry}
-    E --> F[Solver StaticDijkstra]
-    D --> G[SimulationRunner]
-    F --> G
-    G --> H[ConsoleReportObserver]
-    G --> I[VisualizerSnapshotObserver]
-    G --> J[TraceExportObserver]
-    J --> K[output/output_*.json]
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m streamlit run scripts/run_simulation.py
 ```
 
-Komponen dan tanggung jawabnya (Single Responsibility Principle):
+Peramban akan menampilkan editor peta. Koneksi internet diperlukan untuk
+memuat tile peta OpenStreetMap; perhitungan graf berjalan di Python.
 
-| Komponen | File | Tanggung Jawab |
-| --- | --- | --- |
-| `ScenarioLoader` | `cases/scenario_loader.py` | Membaca YAML, membangun `SpatialGraphModel`, menyediakan `execution_plan` |
-| `AlgorithmRegistry` | `algorithms/registry.py` | Pabrik solver: memetakan key algoritma → kelas konkret |
-| `SimulationRunner` | `core/simulation_runner.py` | Orkestrasi fase (rute awal → event → selesai) + pengukuran waktu |
-| `SimulationObserver` | `core/simulation_observers.py` | Visualisasi, laporan konsol, dan ekspor trace — bisa dipasang-lepas |
+## 2. Mengedit node dan edge
 
----
+### Menambah node
 
-## 2. Struktur File Skenario YAML
+1. Klik lokasi tujuan pada peta.
+2. Isi kode unik, nama, dan jenis node pada bagian **Tambah node dari peta**.
+3. Periksa koordinat yang diambil dari klik peta, lalu pilih **Tambah node**.
+4. Untuk kantong parkir, isi kapasitas kendaraan per jam.
 
-Semua skenario memakai skema flat berikut:
+Node yang sudah ada dapat dipilih pada bagian **Edit node** untuk mengubah
+nama, jenis, koordinat, status titik macet, atau kapasitas parkir. Menghapus
+node juga menghapus edge yang terhubung dengannya.
 
-```yaml
-case_id: "case_08_warga_nonton"
-title: "Judul kasus yang mudah dibaca"
-description: "Narasi singkat konteks kasus."
+### Mengedit edge
 
-nodes:
-  - id: 0
-    label: "Nama Tempat (Start)"
-    pos: [0.0, 0.0]          # koordinat untuk visualisasi spasial
-  # ... (spesifikasi N=5 node)
+Di bagian **Edit edge**, pilih ruas lalu ubah titik asal/tujuan, arah, jenis,
+jumlah lajur, faktor lebar lajur, kapasitas manual, beban dasar, atau status
+edge. Edge yang tidak ikut jaringan aliran tetap terlihat pada peta, tetapi
+tidak masuk perhitungan.
 
-edges:
-  - from: 0
-    to: 1
-    weight: 2.0              # bobot (jarak/waktu) untuk pathfinding & MST
-    capacity: 10.0           # kapasitas untuk max flow
-  # ...
+Untuk menambah edge, pilih node asal dan tujuan serta arah. Edge dua arah
+diwakili oleh dua busur terpisah pada jaringan aliran, masing-masing dengan
+kapasitas yang sama.
 
-execution_plan:
-  start_node: 0
-  goal_node: 4
-  algorithm: pathfinding     # OPSIONAL: override registry key
-  events:
-    - step: 1
-      type: "DYNAMIC_EDGE_WEIGHT"
-      target_edge: [1, 3]
-      new_weight: 99.0
-      description: "Narasi event yang membumi."
+### Mengatur parameter
+
+Bagian **Parameter model** mengatur C0, FC model, smp per kendaraan, demand Q,
+reduksi kapasitas konvoi, dan pengurangan beban dasar. Simpan perubahan
+sebelum menghitung ulang aliran.
+
+## 3. Menjalankan analisis
+
+1. Pilih Dinic, Ford-Fulkerson (pencarian jalur BFS), atau Push-Relabel.
+2. Klik **Hitung max-flow dan min-cut**.
+3. Bandingkan nilai max-flow normal dan konvoi, demand yang belum tertampung,
+   serta kapasitas parkir total.
+4. Tabel min-cut mengikuti skenario peta yang dipilih. Ruas min-cut diberi
+   warna merah; kapasitas parkir yang menjadi bottleneck ditandai ungu.
+
+Sumber virtual menerima paling banyak demand Q. Setiap pintu masuk dihubungkan
+ke sumber, dan setiap kantong parkir dihubungkan ke tujuan sesuai kapasitas
+parkirnya. Dengan demikian, hasil min-cut dapat menunjukkan ruas jalan maupun
+batas daya tampung parkir.
+
+## 4. Impor dan ekspor
+
+- **JSON graf** menyimpan node, edge, serta parameter. Unduh berkas untuk
+  mempertahankan perubahan setelah sesi ditutup.
+- **CSV node** berisi identitas, koordinat, jenis, status macet, dan kapasitas
+  parkir.
+- **CSV edge** berisi arah, lajur, parameter kapasitas, dan kapasitas normal
+  maupun konvoi.
+- **CSV jaringan aliran** berisi busur kapasitas normal dan konvoi, termasuk
+  busur sumber, demand, dan parkir.
+- Untuk memuat graf, pilih berkas JSON yang diekspor sebelumnya lalu klik
+  **Muat graf JSON**.
+
+Gunakan **Reset ke data awal** untuk mengembalikan graf dari
+`cases/scenarios/asia_afrika.yaml`.
+
+## 5. Menambah skenario dan algoritma
+
+Skenario awal menggunakan YAML dengan bagian `case_id`, `title`,
+`description`, `parameters`, `nodes`, dan `edges`. `cases/scenario_loader.py`
+membaca YAML tersebut menjadi model graf bertipe di `core/graph_model.py`.
+Validasi mencegah koordinat di luar rentang, kapasitas negatif, dan edge yang
+merujuk node yang tidak tersedia.
+
+Solver mengimplementasikan `BaseGraphAlgorithm` di
+`core/base_algorithm.py`, kemudian didaftarkan melalui
+`AlgorithmRegistry` pada `algorithms/__init__.py`. Runner pada
+`core/simulation_runner.py` menggunakan registry untuk membandingkan solver
+dengan input jaringan yang sama.
+
+## 6. Menjalankan test dan benchmark
+
+```powershell
+python -m pytest
+python -m pytest tests\test_flow_algorithms.py
+python -m scripts.run_benchmark
 ```
 
-### Tiga Varian Tipe Event
-
-Setiap kategori algoritma mengonsumsi tipe event yang berbeda:
-
-| Tipe Event | Field Kunci | Kategori Algoritma | Jumlah Kasus |
-| --- | --- | --- | --- |
-| `DYNAMIC_EDGE_WEIGHT` | `target_edge`, `new_weight` | Pathfinding (Dijkstra/D* Lite), Spanning Tree | 14 |
-| `DYNAMIC_EDGE_CAPACITY` | `target_edge`, `new_capacity` | Max Flow (Ford-Fulkerson/Dinic) | 7 |
-| `CONFLICT_NODE_TRIGGER` | `target_node` | Graph Coloring (DSATUR/Greedy) | 7 |
-
-Jika solver yang aktif tidak mendukung tipe event tertentu, runner akan **melewatinya dengan aman** dan mencetak `[EVENT SKIPPED]` — bukan crash. Ini dimungkinkan oleh deklarasi `SUPPORTED_EVENT_TYPES` di kelas algoritma (lihat Bagian 5).
-
----
-
-## 3. Menjalankan Simulasi
-
-Semua perintah di bawah dijalankan dari root proyek. Disarankan memakai venv: `venv\Scripts\python.exe`.
-
-### Satu kasus (default: `case_08`)
-
-```bash
-python -m scripts.run_simulation
-```
-
-### Kasus tertentu
-
-```bash
-python -m scripts.run_simulation cases/scenarios/case_09_kebocoran_gas.yaml
-```
-
-### Beberapa kasus sekaligus (misal 3 kasus)
-
-```bash
-python -m scripts.run_simulation cases/scenarios/case_01_kobra_banjir.yaml cases/scenarios/case_04_pasar_tumpah.yaml cases/scenarios/case_05_tawuran_pelajar.yaml
-```
-
-### Seluruh folder (semua kasus di dalamnya)
-
-```bash
-python -m scripts.run_simulation cases/scenarios
-```
-
-### Seluruh 28 kasus
-
-```bash
-python -m scripts.run_simulation --all
-```
-
-### Override algoritma secara eksplisit
-
-```bash
-python -m scripts.run_simulation --all --algorithm pathfinding
-```
-
-Prioritas pemilihan algoritma (yang paling kiri menang):
-
-1. Argumen CLI `--algorithm`
-2. Key `algorithm:` di dalam YAML (bagian `execution_plan` atau metadata)
-3. `DEFAULT_ALGORITHM` di `config/settings.py`
-
-> **Batch terkurasi:** isi `DEFAULT_SCENARIO_BATCH` di `config/settings.py` dengan daftar path YAML. Jika CLI dipanggil tanpa argumen, batch inilah yang dijalankan. Kosongkan untuk kembali ke skenario default tunggal.
-
----
-
-## 4. Benchmark Performa
-
-Perintah yang sama berlaku untuk benchmark, dengan output tabel ringkasan (runtime & step count per kasus):
-
-```bash
-python -m scripts.run_benchmark                          # skenario default
-python -m scripts.run_benchmark cases/scenarios/case_14_gapura_roboh.yaml
-python -m scripts.run_benchmark --all                    # seluruh 28 kasus
-python -m scripts.run_benchmark --all --algorithm pathfinding
-```
-
----
-
-## 5. Arsitektur SOLID & Cara Menambah Algoritma
-
-Runner **tidak pernah hardcode** kelas solver. Algoritma mendaftarkan dirinya ke `AlgorithmRegistry`:
-
-```python
-# algorithms/pathfinding/static_dijkstra.py (contoh existing)
-class StaticDijkstra(BaseGraphAlgorithm):
-
-    SUPPORTED_EVENT_TYPES = frozenset({"DYNAMIC_EDGE_WEIGHT"})
-    ...
-
-AlgorithmRegistry.register("static_dijkstra", StaticDijkstra)
-AlgorithmRegistry.register_alias("pathfinding", "static_dijkstra")
-```
-
-Contoh ketika mahasiswa mengimplementasikan algoritma **Minimum Spanning Tree**:
-
-```python
-# algorithms/spanning_tree/prim_mst.py
-from algorithms.registry import AlgorithmRegistry
-from core.base_algorithm import BaseGraphAlgorithm
-
-class PrimMST(BaseGraphAlgorithm):
-
-    SUPPORTED_EVENT_TYPES = frozenset({"DYNAMIC_EDGE_WEIGHT", "DYNAMIC_EDGE_CAPACITY"})
-
-    def run(self, start_node, goal_node):
-        ...  # logika Prim + self.log_step(...)
-
-    def handle_dynamic_event(self, event_data):
-        ...  # reaksi terhadap perubahan bobot/kapasitas
-
-AlgorithmRegistry.register("prim_mst", PrimMST)
-AlgorithmRegistry.register_alias("spanning_tree", "prim_mst")
-```
-
-Setelah itu YAML cukup diberi `algorithm: spanning_tree` (atau jalankan dengan `--algorithm spanning_tree`) tanpa mengubah kode runner sama sekali — inilah **Open/Closed Principle**. Deklarasi `SUPPORTED_EVENT_TYPES` menjelaskan kontrak event (Interface Segregation), dan runner hanya bergantung pada abstraksi `BaseGraphAlgorithm` (Dependency Inversion).
-
-Pemetaan 28 kasus ke 4 kategori algoritma tersedia di [CASESS.md](CASESS.md).
-
----
-
-## 6. Menambah Skenario Baru
-
-1. Salin salah satu YAML di `cases/scenarios/` sebagai templat.
-2. Ubah `case_id`, `title`, `description`, topologi node/edge, dan event.
-3. Simpan dengan nama `case_XX_nama_kasus.yaml` (ekstensi `.yaml` atau `.yml`).
-4. Selesai — skenario otomatis terbaca oleh `--all`, glob folder, dan test parametrized.
-
----
-
-## 7. Test Otomatis
-
-```bash
-venv\Scripts\python.exe -m pytest            # seluruh test
-venv\Scripts\python.exe -m pytest -v         # output terperinci per kasus
-venv\Scripts\python.exe -m pytest tests/test_all_scenarios.py   # audit 28 skenario
-```
-
-`tests/test_all_scenarios.py` berisi test **parametrized** yang mengaudit setiap file skenario secara otomatis:
-
-- Metadata lengkap (`case_id`, `title`).
-- `execution_plan` valid (`start_node`, `goal_node` ada di graf).
-- Algoritma baseline menemukan rute valid dari start ke goal.
-- Event yang didukung solver menghasilkan rute ulang yang valid.
-- Event yang tidak didukung tetap valid strukturnya (edge/node target ada di graf).
-- Delta log terekam konsisten (`step_count` == jumlah log).
-
-Test ini dihitung otomatis dari isi folder — begitu Anda menambah YAML baru, test barunya ikut jalan tanpa edit kode test.
-
----
-
-## 8. Output & Troubleshooting
-
-Setiap simulasi mengekspor trace JSON ke `output/output_<case_id>.json` berisi metadata, topologi awal, dan `raw_quantitative_trace` (seluruh mutasi state per step).
-
-| Gejala | Penyebab | Solusi |
-| --- | --- | --- |
-| `FileNotFoundError` saat load | Path YAML salah / file tidak ada | Periksa path; gunakan `--all` atau path folder |
-| `KeyError: 'algorithm' ... tidak terdaftar` | Key algoritma belum diregistrasi | Cek `AlgorithmRegistry.available()`; daftarkan kelasnya dulu |
-| `[EVENT SKIPPED]` di konsol | Bukan bug — tipe event memang bukan ranah algoritma aktif | Jalankan dengan algoritma kategori yang sesuai |
-| Jendela matplotlib tidak muncul saat test | Backend headless (Agg) dipakai pytest | Normal; jalankan `run_simulation` biasa untuk melihat GUI |
+Tes mencakup hasil max-flow/min-cut, kapasitas edge paralel, validasi
+kapasitas, pemuatan skenario awal, dan ketiga implementasi algoritma.

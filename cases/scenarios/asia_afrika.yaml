@@ -1,0 +1,173 @@
+case_id: asia_afrika
+title: Editor graf aliran koridor Asia Afrika
+description: >
+  Jaringan jalan koridor Asia Afrika di Bandung untuk menghitung kapasitas
+  aliran kendaraan menuju kantong parkir pada skenario normal dan konvoi.
+
+parameters:
+  c0: 1700
+  fc: 1
+  smp: 1
+  Q: 5000
+  red: 0.4
+  bg: true
+  scen: konvoi
+
+nodes:
+  - id: GS
+    lat: -6.9024715
+    lon: 107.6187018
+    nama: Gedung Sate (titik awal Gmaps)
+    jenis: Gmaps
+  - id: VD
+    lat: -6.9142774
+    lon: 107.6075304
+    nama: Viaduct (titik transit Gmaps)
+    jenis: Gmaps
+  - id: E1
+    lat: -6.9086653
+    lon: 107.6108282
+    nama: Pintu masuk utara (Jl. Merdeka / BIP)
+    jenis: Pintu masuk
+    macet: true
+  - id: E2
+    lat: -6.92247
+    lon: 107.617287
+    nama: Pintu masuk timur (Jl. Asia Afrika No.186)
+    jenis: Pintu masuk
+  - id: E3
+    lat: -6.920556
+    lon: 107.6006172
+    nama: Pintu masuk barat (arah Jl. Sudirman)
+    jenis: Pintu masuk
+  - id: E4
+    lat: -6.9253575
+    lon: 107.6039925
+    nama: Pintu masuk selatan (arah Jl. Otista)
+    jenis: Pintu masuk
+  - id: J1
+    lat: -6.9171186
+    lon: 107.6084637
+    nama: Jl. Braga utara (Braga Citywalk)
+    jenis: Simpul koridor
+    macet: true
+  - id: J2
+    lat: -6.9198842
+    lon: 107.612058
+    nama: Jl. Tamblong No.3
+    jenis: Simpul koridor
+  - id: J3
+    lat: -6.9197367
+    lon: 107.6163291
+    nama: Jl. Veteran (menuju Asia Afrika)
+    jenis: Simpul koridor
+  - id: J4
+    lat: -6.9179599
+    lon: 107.6125119
+    nama: Persimpangan Lembong-Tamblong-Veteran
+    jenis: Simpul koridor
+  - id: J5
+    lat: -6.9211744
+    lon: 107.6091696
+    nama: Simpang Braga dan Asia Afrika
+    jenis: Simpul koridor
+    macet: true
+  - id: J6
+    lat: -6.9217845
+    lon: 107.6070838
+    nama: Alun-Alun (Asia Afrika barat)
+    jenis: Simpul koridor
+    macet: true
+  - id: J7
+    lat: -6.9182071
+    lon: 107.6065187
+    nama: Jl. Banceuy
+    jenis: Simpul koridor
+  - id: J8
+    lat: -6.923015
+    lon: 107.6118863
+    nama: Jl. Lengkong Besar (Berkah 11)
+    jenis: Simpul koridor
+  - id: J9
+    lat: -6.9223357
+    lon: 107.6176812
+    nama: Simpang Lima
+    jenis: Simpul koridor
+    macet: true
+  - id: J10
+    lat: -6.921275
+    lon: 107.6079203
+    nama: JPO Asia Afrika (finis)
+    jenis: Simpul koridor
+    macet: true
+  - id: P1
+    lat: -6.9224258
+    lon: 107.6073145
+    nama: Basement Alun-Alun
+    jenis: Kantong parkir
+    pcap: 500
+  - id: P2
+    lat: -6.9213781
+    lon: 107.6080944
+    nama: Eks Palaguna
+    jenis: Kantong parkir
+    pcap: 500
+  - id: P3
+    lat: -6.9225467
+    lon: 107.6076762
+    nama: Dalem Kaum
+    jenis: Kantong parkir
+    pcap: 300
+  - id: P4
+    lat: -6.9203258
+    lon: 107.6082277
+    nama: Cikapundung
+    jenis: Kantong parkir
+    pcap: 400
+  - id: P5
+    lat: -6.9192363
+    lon: 107.6088062
+    nama: Jl. ABC
+    jenis: Kantong parkir
+    pcap: 400
+  - id: P6
+    lat: -6.9206
+    lon: 107.6014
+    nama: Parkir tepi Jl. Sudirman
+    jenis: Kantong parkir
+    pcap: 300
+  - id: P7
+    lat: -6.923453
+    lon: 107.6044483
+    nama: Parkir Jl. Otista
+    jenis: Kantong parkir
+    pcap: 300
+
+edges:
+  - {u: GS, v: E1, type: konvoi, flow: false}
+  - {u: E1, v: VD, type: konvoi}
+  - {u: VD, v: J4, type: konvoi}
+  - {u: J4, v: J3, type: konvoi}
+  - {u: J3, v: E2, type: konvoi}
+  - {u: J9, v: E2, type: asia_afrika, dir: one, lanes: 4, w: 10, bg: 1932}
+  - {u: E2, v: J5, type: asia_afrika, dir: one, lanes: 4, w: 10, bg: 1932}
+  - {u: J5, v: J10, type: asia_afrika, dir: one, lanes: 4, w: 10, bg: 2157}
+  - {u: J10, v: J6, type: asia_afrika, dir: one, lanes: 4, w: 10, bg: 2157}
+  - {u: VD, v: J1}
+  - {u: J1, v: J7}
+  - {u: J1, v: P5}
+  - {u: P5, v: P4}
+  - {u: P4, v: J5}
+  - {u: J7, v: P4}
+  - {u: J4, v: J2}
+  - {u: J2, v: J5}
+  - {u: J2, v: J8}
+  - {u: J8, v: J5}
+  - {u: J10, v: P2}
+  - {u: J6, v: P1}
+  - {u: P1, v: P3}
+  - {u: J6, v: P3}
+  - {u: J6, v: P6}
+  - {u: P6, v: E3}
+  - {u: E4, v: P7}
+  - {u: P7, v: J6}
