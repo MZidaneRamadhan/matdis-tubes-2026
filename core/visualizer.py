@@ -52,16 +52,6 @@ def build_map(
             sum(node.lon for node in graph.nodes.values()) / len(graph.nodes),
         ]
     map_view = folium.Map(location=center, zoom_start=14, control_scale=True)
-    cut_parking = {
-        result.arcs[index].node
-        for index in result.flow_result.min_cut
-        if result.arcs[index].kind == "park"
-    } if result else set()
-    cut_edges = {
-        result.arcs[index].edge_id
-        for index in result.flow_result.min_cut
-        if result.arcs[index].edge_id is not None
-    } if result else set()
 
     for index, edge in enumerate(graph.edges):
         start = graph.nodes[edge.u]
@@ -85,11 +75,7 @@ def build_map(
         if edge.flow:
             folium.PolyLine(
                 locations=[(start.lat, start.lon), (end.lat, end.lon)],
-                color=(
-                    "#dc2626"
-                    if index in cut_edges
-                    else _edge_color(index, edge.type, result)
-                ),
+                color=_edge_color(index, edge.type, result),
                 weight=5 if edge.type == "asia_afrika" else 3,
                 opacity=0.9,
                 dash_array="10, 8" if edge.type == "konvoi" else None,
@@ -118,14 +104,12 @@ def build_map(
             details += f"<br>Kapasitas parkir: {_format(node.pcap)} kendaraan/jam"
         if node.macet:
             details += "<br>Titik macet dilaporkan"
-        if key in cut_parking:
-            details += "<br><b>Node parkir berada pada min-cut</b>"
         folium.Marker(
             location=(node.lat, node.lon),
             tooltip=f"{safe_key}: {safe_name}",
             popup=folium.Popup(details, max_width=320),
             icon=folium.Icon(
-                color="purple" if key in cut_parking else NODE_COLORS[node.jenis],
+                color=NODE_COLORS[node.jenis],
                 icon="info-sign",
             ),
         ).add_to(map_view)

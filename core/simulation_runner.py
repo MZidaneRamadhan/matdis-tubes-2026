@@ -1,4 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from statistics import median
+from time import perf_counter
 
 from algorithms import AlgorithmRegistry
 from core.base_algorithm import FlowResult
@@ -22,6 +24,8 @@ class ScenarioResult:
     edge_results: dict[int, dict[str, float]]
     parking_capacity: float
     demand: float
+    elapsed_ms: float = 0.0
+    stats: dict[str, int | float] = field(default_factory=dict)
 
     @property
     def unserved(self) -> float:
@@ -33,14 +37,23 @@ def solve_scenario(
     parameters: FlowParameters,
     scenario: str,
     algorithm: str = "Dinic",
+    repeats: int = 25,
 ) -> ScenarioResult:
     graph.validate()
     if algorithm not in ALGORITHMS:
         raise ValueError(f"Algoritma tidak dikenal: {algorithm!r}.")
 
     arcs = build_flow_arcs(graph, parameters, scenario)
-    solver = AlgorithmRegistry.create(ALGORITHMS[algorithm], graph)
-    result = solver.run(SOURCE, SINK, arcs)
+    key = ALGORITHMS[algorithm]
+    samples = []
+    solver = None
+    result = None
+    for _ in range(max(1, repeats)):
+        solver = AlgorithmRegistry.create(key, graph)
+        started = perf_counter()
+        result = solver.run(SOURCE, SINK, arcs)
+        samples.append((perf_counter() - started) * 1000)
+
     edge_results: dict[int, dict[str, float]] = {}
     for index, arc in enumerate(arcs):
         if arc.edge_id is None:
@@ -59,6 +72,8 @@ def solve_scenario(
             arc.capacity for arc in arcs if arc.kind == "park"
         ),
         demand=parameters.Q,
+        elapsed_ms=median(samples),
+        stats=dict(getattr(solver, "stats", {}) or {}),
     )
 
 
@@ -72,3 +87,14 @@ def solve_both_scenarios(
         for scenario in ("normal", "konvoi")
     }
 
+
+def compare_algorithms(
+    graph: GraphModel,
+    parameters: FlowParameters,
+    algorithms: tuple[str, ...] = ("Ford-Fulkerson", "Dinic"),
+) -> dict[str, dict[str, ScenarioResult]]:
+    """Hitung max-flow untuk setiap algoritma pada skenario normal dan konvoi."""
+    return {
+        algo: solve_both_scenarios(graph, parameters, algo)
+        for algo in algorithms
+    }
