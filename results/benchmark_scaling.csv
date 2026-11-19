@@ -1,0 +1,9 @@
+grid,V,E_arc,algoritma,max_flow,waktu_ms_median,memori_puncak_KiB,fase_BFS,augmenting_path,edge_scan
+5x5,27,90,Ford-Fulkerson (basic),4255,0.362,25.2,14,13,1947
+5x5,27,90,Dinic (advance),4255,0.437,26.0,5,13,1776
+10x10,102,380,Ford-Fulkerson (basic),8573,4.248,101.1,48,47,28679
+10x10,102,380,Dinic (advance),8573,2.849,105.3,10,47,13301
+20x20,402,1560,Ford-Fulkerson (basic),11777,57.984,434.0,139,138,389762
+20x20,402,1560,Dinic (advance),11777,22.074,442.0,16,138,95783
+40x40,1602,6320,Ford-Fulkerson (basic),26330,1331.093,2155.5,703,702,8527802
+40x40,1602,6320,Dinic (advance),26330,263.398,2163.0,43,702,1017480

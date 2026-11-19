@@ -1,0 +1,5 @@
+skenario,algoritma,V,E_arc,max_flow,waktu_ms_median,memori_puncak_KiB,fase_BFS,augmenting_path,edge_scan,min_cut
+normal,Ford-Fulkerson (basic),25,60,2700,0.1550,22.6,8,7,694,P1->T P2->T P3->T P4->T P5->T P6->T P7->T
+normal,Dinic (advance),25,60,2700,0.2204,22.3,3,7,842,P1->T P2->T P3->T P4->T P5->T P6->T P7->T
+konvoi,Ford-Fulkerson (basic),25,60,2700,0.1636,22.6,8,7,694,P1->T P2->T P3->T P4->T P5->T P6->T P7->T
+konvoi,Dinic (advance),25,60,2700,0.1976,21.0,3,7,842,P1->T P2->T P3->T P4->T P5->T P6->T P7->T

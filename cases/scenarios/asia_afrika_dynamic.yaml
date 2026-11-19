@@ -1,0 +1,48 @@
+case_id: asia_afrika_dynamic
+title: Simulasi graf dinamis koridor Asia Afrika (hari konvoi)
+description: >
+  Timeline gangguan per satuan waktu untuk Bagian 4.2. Setiap langkah waktu
+  mengubah kapasitas edge/kantong parkir pada graf Asia Afrika. Faktor
+  bersifat kumulatif (berlaku sampai diset ulang). factor 0 = ditutup total.
+
+base_scenario: asia_afrika.yaml
+
+timeline:
+  - t: 0
+    jam: "07.00"
+    label: Kondisi normal (baseline)
+    scenario: normal
+
+  - t: 1
+    jam: "08.00"
+    label: Konvoi dimulai, ruas di simpul macet turun 40%
+    scenario: konvoi
+
+  - t: 2
+    jam: "09.00"
+    label: Ruas Asia Afrika J5->J10 ditutup total (area finis JPO)
+    scenario: konvoi
+    edges:
+      - {u: J5, v: J10, factor: 0}
+
+  - t: 3
+    jam: "10.00"
+    label: Hujan deras + parkir liar, Jl. Sudirman P6-E3 tinggal 25%
+    scenario: konvoi
+    edges:
+      - {u: P6, v: E3, factor: 0.25}
+
+  - t: 4
+    jam: "11.00"
+    label: Basement Alun-Alun (P1) tergenang, ditutup
+    scenario: konvoi
+    parking:
+      - {node: P1, factor: 0}
+
+  - t: 5
+    jam: "13.00"
+    label: Konvoi selesai, J5->J10 dan Jl. Sudirman pulih (P1 masih tergenang)
+    scenario: normal
+    edges:
+      - {u: J5, v: J10, factor: 1}
+      - {u: P6, v: E3, factor: 1}
